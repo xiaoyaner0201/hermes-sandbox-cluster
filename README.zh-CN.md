@@ -227,6 +227,47 @@ scripts/vendor-core.sh          按 tag 更新这份核心库
 tests/                          Hermes 端到端验收脚本、核心库一致性检查
 ```
 
+## SHAS 0.4 SDK 候选
+
+本轮实际改动：内置 SDK 更新到 **0.4.0rc1**，精确锁定提交
+`1f0d0ac43052978aa63a564e111531b1deae458a`。两个 SDK 文件均保持上游原样，Git blob 与
+SHA-256 见 [`VENDORED.md`](plugin/agent_sandbox_backend/_vendor/VENDORED.md)。上游包已改名为
+`self_hosted_agent_sandbox`，插件内仍保留 `agent_sandbox` 导入路径。刷新脚本先将 ref 解析成
+不可变提交，再读取两个文件，也支持传入本地 SHAS checkout；不增加安装依赖。
+
+**默认会消费：**带校验和的制品接收和未完成接收恢复。Hermes 仍走自己的 `BaseEnvironment`
+回调，保留 cwd、shell snapshot、stdin、超时标记和结果字段；回调抛异常也保留 pending 状态，
+下一条命令必须先接收上次结果，才可推送宿主文件，避免旧副本覆盖沙箱产物。宿主命令路由、
+审批、环境变量白名单和会话清理策略不变。
+
+**必须主动开启：** `terminal.agent_sandbox_strict_pull: true`，或
+`AGENT_SANDBOX_STRICT_PULL=true`。开启后，命令结束但制品接收失败会抛错；命令可能已经执行，
+不要直接重跑有副作用的命令。嵌入调用方可先用 `env.sbx.pull()` 单独重试接收。默认 `false`
+仍先记录警告，但接收一直失败时，下一条命令同样会被阻断。仅开启 strict pull 不需扩大 RBAC。
+
+**SDK 提供但插件没有默认接入：** `Allocation`、`ReleaseError`、`release_verified()` 和
+`release_allocation()`。`cleanup()` 仍调用旧 `close()`：只异步发删除请求，不代表 Pod 已消失。
+验证式释放是破坏性 API，不负责接收制品、忽略持久化策略，还需要包括 Sandbox CR 清单读取在内
+的额外 RBAC；嵌入方须先停止执行/续期、接收制品，再显式调用。本轮不扩大权限。
+SDK 的二进制 `stream=` 属于其默认执行器，Hermes 回调路径没有改成这套输出模式。
+
+### 候选验证
+
+```bash
+python3 tests/vendored_core.py
+SHAS_SOURCE_CHECKOUT=/path/to/shas python3 tests/vendored_core.py
+# 使用兼容 Hermes 的解释器和本地已有 Linux 测试镜像，不拉取镜像：
+HERMES_SRC=/path/to/hermes SHAS_TEST_IMAGE=your-local-test-image python tests/adapter_contract.py
+```
+
+适配器合同测试使用**真实 Hermes BaseEnvironment + 隔离 Docker shell/tar**，只有 Kubernetes
+申领/删除是合成控制面，覆盖两个 pool/namespace、独立会话、二进制回传、删除、损坏接收及恢复
+且不重跑命令、回调异常、cwd/snapshot、stdin、非零退出、超时、宿主路由、审批和旧持久化清理。
+不访问现役集群，不安装到操作者自己的 Hermes home。这**不等于** Kubernetes/gVisor 或 Multica
+真任务验收。既有集群测试单独运行；`task_layout.py` 现在遵循 `AGENT_SANDBOX_NAMESPACE`，
+两份脚本断言失败都会非零退出。超时测试会暴露原有 Hermes 子进程 `ResourceWarning`，不能据此
+宣称远程进程取消已验证。
+
 ## 🛣️ 状态
 
 早期版本。已在 Linux x86_64 节点上配合 Hermes `main`（终端环境 provider API）测试。

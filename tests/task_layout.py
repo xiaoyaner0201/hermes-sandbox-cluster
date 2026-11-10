@@ -57,7 +57,7 @@ out = T("cd t/.evil && git push 2>&1; echo rc=$?", workdir=wd)  # bare repo disc
 check("bare_repo_hook_not_run_on_host", "PWNED" not in out, out)
 from tools.terminal_tool_lifecycle import get_active_env
 env = get_active_env(tid); claim = getattr(getattr(env, "sbx", env), "_claim", None)
-kc = [kubectl, "--kubeconfig", kubeconfig, "-n", "sbx"]
+kc = [kubectl, "--kubeconfig", kubeconfig, "-n", os.environ.get("AGENT_SANDBOX_NAMESPACE", "sbx")]
 st = subprocess.run(kc + ["get", "sandboxclaim", claim, "-o", "jsonpath={.spec.lifecycle.shutdownTime}"], capture_output=True, text=True).stdout
 check("claim_has_cluster_ttl", st.endswith("Z"), st)
 from tools.terminal_tool import _resolve_container_task_id
@@ -69,3 +69,4 @@ for _ in range(30):  # delete is --wait=false; finalizers take a few seconds
     time.sleep(1)
 check("session_close_releases_claim", r.returncode != 0 and "NotFound" in r.stderr, (r.stdout or r.stderr).strip()[:160])
 print("SUMMARY", json.dumps(res), "passed=%d/%d" % (sum(res.values()), len(res)))
+sys.exit(0 if res and all(res.values()) else 1)

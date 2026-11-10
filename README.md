@@ -224,6 +224,57 @@ scripts/vendor-core.sh          refresh the vendored core from a tag
 tests/                          Hermes end-to-end acceptance scripts, vendored-core check
 ```
 
+## SHAS 0.4 SDK candidate
+
+The plugin now vendors SHAS **0.4.0rc1**, pinned to commit
+`1f0d0ac43052978aa63a564e111531b1deae458a` (both SDK files, Git blob IDs and SHA-256 in
+[`VENDORED.md`](plugin/agent_sandbox_backend/_vendor/VENDORED.md)). The SDK's source package is
+now `self_hosted_agent_sandbox`; the local vendored import path remains `agent_sandbox`.
+The refresh script resolves a ref to an immutable commit before reading either file, and also
+accepts an optional local SHAS checkout. No new install dependency is required.
+
+**Consumed by default:** checksum-validated artifact receipt and pending-receipt recovery.
+Hermes still executes through its own `BaseEnvironment` callback, keeping cwd, shell snapshots,
+stdin, timeout metadata and normal result fields. A callback exception also leaves receipt
+pending; the next command must recover it before pushing host files. Host routing, approvals,
+environment forwarding and session cleanup policy are unchanged.
+
+**Explicit opt-in:** `terminal.agent_sandbox_strict_pull: true` (or
+`AGENT_SANDBOX_STRICT_PULL=true`) raises if post-command artifact receipt fails. The command may
+already have executed: do **not** blindly rerun side effects. An embedding caller can retry
+`env.sbx.pull()` before continuing. With the default `false`, the first receipt failure is logged;
+an unresolved pending receipt still blocks the next command, preventing stale overwrite.
+No new Kubernetes permissions are needed just for strict pull.
+
+**Available SDK APIs, not enabled Hermes behavior:** `Allocation`, `ReleaseError`,
+`release_verified()` and `release_allocation()` are bundled, but `cleanup()` still calls legacy
+`close()`. It sends an asynchronous delete request; success is **not** proof that the Pod is gone.
+Verified release is destructive, does not pull artifacts, ignores persistence, and needs
+additional read RBAC (including Sandbox CR inventory). Embedders must stop execution/renewal,
+receive artifacts first and explicitly choose that API. This release does not expand RBAC.
+Likewise the SDK's binary `stream=` API belongs to its default runner; this adapter deliberately
+keeps Hermes's callback/output handling rather than replacing it with a new streaming mode.
+
+### Candidate verification
+
+```bash
+python3 tests/vendored_core.py
+# Optional immutable-source comparison:
+SHAS_SOURCE_CHECKOUT=/path/to/shas python3 tests/vendored_core.py
+# A compatible Hermes interpreter and an already-local Linux image are required; never pulls:
+HERMES_SRC=/path/to/hermes SHAS_TEST_IMAGE=your-local-test-image python tests/adapter_contract.py
+```
+
+The adapter contract suite uses **real Hermes BaseEnvironment + isolated Docker shell/tar**, with
+synthetic Kubernetes claims/deletes, two pools/namespaces and separate sessions. It does not
+contact a live cluster or install the plugin into the operator's Hermes home. It covers binary
+round-trip, deletion, corrupt receipt/retry without rerunning, callback exceptions, cwd/snapshot,
+stdin, nonzero exits, timeouts, host routing, approval and legacy persistent cleanup.
+This is **not** live Kubernetes/gVisor or Multica task acceptance. The existing real-cluster scripts
+remain separate; `task_layout.py` honors `AGENT_SANDBOX_NAMESPACE`, and both scripts exit nonzero
+when an assertion fails. A timeout test currently exposes a pre-existing Hermes subprocess
+`ResourceWarning`; it is not evidence of verified remote cancellation.
+
 ## 🛣️ Status
 
 Early. Tested with Hermes `main` (terminal environment provider API) on Linux x86_64 nodes.

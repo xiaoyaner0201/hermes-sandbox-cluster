@@ -1,5 +1,5 @@
 name: agent-sandbox-backend
-version: "0.22.7.3"
+version: "0.22.7.4rc1"
 description: Terminal backend that runs Hermes terminal, file and execute_code tools in gVisor sandboxes claimed from a kubernetes-sigs/agent-sandbox warm pool on your own k3s/Kubernetes cluster.
 kind: backend
 requires_hermes: ">=0.21.5"

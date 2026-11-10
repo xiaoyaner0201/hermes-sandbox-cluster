@@ -126,3 +126,4 @@ if gav:
 
 cleanup_vm(tid, force_remove=True)
 print("SUMMARY", json.dumps(res), "passed=%d/%d" % (sum(res.values()), len(res)))
+sys.exit(0 if res and all(res.values()) else 1)
