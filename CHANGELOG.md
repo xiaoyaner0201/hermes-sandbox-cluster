@@ -7,6 +7,30 @@ suffix (`0.22.7-2`), which reads as a pre-release under SemVer. Hermes compares 
 with Python's `packaging.version` (PEP 440), where `0.22.7.3` > `0.22.7-2` > `0.22.7`.
 `requires_hermes` in `plugin.yaml` stays the oldest release the plugin is known to work with.
 
+## 0.22.7.4rc1 — SHAS 0.4 SDK candidate
+
+- Vendor unmodified SHAS **0.4.0rc1** at `1f0d0ac43052978aa63a564e111531b1deae458a`.
+  Both SDK files now have immutable commit, Git blob and SHA-256 provenance. The refresh script
+  follows the renamed `src/self_hosted_agent_sandbox` package and accepts a local source checkout.
+- Consume checksum-validated artifact receipt and pending-receipt recovery through the existing
+  Hermes callback; keep cwd/snapshot/stdin/timeout metadata, approvals and host-command rules.
+- Strict receipt remains **opt-in** (`agent_sandbox_strict_pull`, default false). The bundled
+  verified-release/Allocation APIs and SDK binary streaming API are **available, not default
+  Hermes cleanup/output behavior**. No RBAC expansion or production configuration change.
+- Add adapter contract tests using real Hermes v0.22.7 and a v0.23.0-based checkout with isolated
+  Docker shell/tar and a synthetic Kubernetes control plane: concurrent sessions, custom pools
+  and namespaces, binary artifacts/deletes, corrupt receipt, callback errors, recovery without
+  rerunning, cwd/snapshots/env/stdin, exit/timeout metadata, routing, approvals and legacy cleanup.
+- Real-cluster scripts now fail with a nonzero exit status; task-layout cleanup follows the
+  configured namespace rather than hardcoding it.
+- This candidate has **not** passed live Kubernetes/gVisor or Multica task acceptance. Timeout
+  probes expose an existing Hermes subprocess ResourceWarning; verified remote cancellation is
+  not claimed. Historical cluster measurements below are not new candidate measurements.
+
+中文摘要：本轮只同步精确版本 SDK、修复改名后的 vendoring 流程、补真实 Hermes 回调合同测试与
+中英说明。默认接入制品校验/恢复；strict pull 需显式开启，验证式释放只提供 API、不默认启用，
+不扩大 RBAC，不改宿主命令/审批规则，未安装到操作者 Hermes、未完成现役集群/Multica 真任务验收。
+
 ## 0.22.7.3
 
 Tested with Hermes v0.22.7 and 0.21.5. Vendors self-hosted-agent-sandbox v0.2.0.
